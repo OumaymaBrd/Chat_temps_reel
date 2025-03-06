@@ -126,27 +126,43 @@ io.on("connection", (socket) => {
   socket.on("verify-code", (code) => {
     console.log("Vérification du code:", code)
 
-    if (activeCodes.has(code)) {
+    try {
+      if (!code || typeof code !== "string") {
+        socket.emit("code-verified", {
+          valid: false,
+          error: "Code invalide",
+        })
+        return
+      }
+
       // Le code existe déjà, rejoindre la salle
-      socket.join(code)
+      if (activeCodes.has(code)) {
+        socket.join(code)
+        socket.emit("code-verified", {
+          valid: true,
+          code: code,
+        })
+        console.log(`Client a rejoint la salle: ${code}`)
+      } else {
+        // Création d'une nouvelle salle
+        activeCodes.set(code, {
+          createdAt: new Date(),
+          users: new Map(),
+        })
+        socket.join(code)
+        socket.emit("code-verified", {
+          valid: true,
+          code: code,
+          isNew: true,
+        })
+        console.log(`Nouvelle salle créée: ${code}`)
+      }
+    } catch (error) {
+      console.error("Erreur lors de la vérification du code:", error)
       socket.emit("code-verified", {
-        valid: true,
-        code: code,
+        valid: false,
+        error: "Erreur serveur",
       })
-      console.log(`Client a rejoint la salle: ${code}`)
-    } else {
-      // Création d'une nouvelle salle
-      activeCodes.set(code, {
-        createdAt: new Date(),
-        users: new Set(),
-      })
-      socket.join(code)
-      socket.emit("code-verified", {
-        valid: true,
-        code: code,
-        isNew: true,
-      })
-      console.log(`Nouvelle salle créée: ${code}`)
     }
   })
 
@@ -159,9 +175,9 @@ io.on("connection", (socket) => {
       return
     }
 
-    // Enregistrer l'utilisateur dans la salle
+    // Enregistrer l'utilisateur dans la salle avec son socketId
     const room = activeCodes.get(code)
-    room.users.add(username)
+    room.users.set(username, socket.id)
 
     // Associer le socket à l'utilisateur
     userSockets.set(socket.id, { code, username })
@@ -170,9 +186,10 @@ io.on("connection", (socket) => {
     socket.to(code).emit("user-joined", { username })
 
     // Envoyer la liste des utilisateurs connectés
-    io.to(code).emit("users-list", Array.from(room.users))
+    const usersList = Array.from(room.users.keys())
+    io.to(code).emit("users-list", usersList)
 
-    console.log(`Utilisateur ${username} enregistré dans la salle ${code}`)
+    console.log(`Utilisateur ${username} enregistré dans la salle ${code} avec socketId ${socket.id}`)
   })
 
   // Gestion des messages
@@ -196,17 +213,26 @@ io.on("connection", (socket) => {
 
   // Gestion des appels WebRTC
   socket.on("call-user", (data) => {
-    const { code, target, offer, caller } = data
+    const { code, targetUsername, offer, caller } = data
 
     if (!code || !activeCodes.has(code)) {
       socket.emit("error", { message: "Code de salle invalide" })
       return
     }
 
-    console.log(`Appel de ${caller} vers ${target} dans la salle ${code}`)
+    const room = activeCodes.get(code)
 
-    // Transmettre l'offre à tous les utilisateurs de la salle (pour un appel de groupe)
-    socket.to(code).emit("incoming-call", {
+    // Vérifier si l'utilisateur cible existe
+    if (!room.users.has(targetUsername)) {
+      socket.emit("error", { message: "Utilisateur cible non trouvé" })
+      return
+    }
+
+    const targetSocketId = room.users.get(targetUsername)
+    console.log(`Appel de ${caller} vers ${targetUsername} (socketId: ${targetSocketId}) dans la salle ${code}`)
+
+    // Envoyer l'offre uniquement à l'utilisateur cible
+    io.to(targetSocketId).emit("incoming-call", {
       offer,
       caller,
     })
@@ -220,42 +246,69 @@ io.on("connection", (socket) => {
       return
     }
 
-    console.log(`Réponse d'appel de ${answerer} à ${caller} dans la salle ${code}`)
+    const room = activeCodes.get(code)
 
-    // Transmettre la réponse à tous les utilisateurs de la salle
-    socket.to(code).emit("call-answered", {
+    // Vérifier si l'appelant existe
+    if (!room.users.has(caller)) {
+      socket.emit("error", { message: "Appelant non trouvé" })
+      return
+    }
+
+    const callerSocketId = room.users.get(caller)
+    console.log(`Réponse d'appel de ${answerer} à ${caller} (socketId: ${callerSocketId}) dans la salle ${code}`)
+
+    // Envoyer la réponse uniquement à l'appelant
+    io.to(callerSocketId).emit("call-answered", {
       answer,
       answerer,
     })
   })
 
   socket.on("ice-candidate", (data) => {
-    const { code, candidate, sender } = data
+    const { code, candidate, sender, target } = data
 
     if (!code || !activeCodes.has(code)) {
       socket.emit("error", { message: "Code de salle invalide" })
       return
     }
 
-    // Transmettre le candidat ICE aux autres utilisateurs
-    socket.to(code).emit("ice-candidate", {
+    const room = activeCodes.get(code)
+
+    // Vérifier si la cible existe
+    if (!room.users.has(target)) {
+      socket.emit("error", { message: "Utilisateur cible non trouvé" })
+      return
+    }
+
+    const targetSocketId = room.users.get(target)
+
+    // Envoyer le candidat ICE uniquement à l'utilisateur cible
+    io.to(targetSocketId).emit("ice-candidate", {
       candidate,
       sender,
     })
   })
 
   socket.on("end-call", (data) => {
-    const { code, username } = data
+    const { code, username, target } = data
 
     if (!code || !activeCodes.has(code)) {
       socket.emit("error", { message: "Code de salle invalide" })
       return
     }
 
+    const room = activeCodes.get(code)
+
     console.log(`Appel terminé par ${username} dans la salle ${code}`)
 
-    // Informer les autres utilisateurs que l'appel est terminé
-    socket.to(code).emit("call-ended", { username })
+    // Si une cible spécifique est fournie, envoyer uniquement à cette cible
+    if (target && room.users.has(target)) {
+      const targetSocketId = room.users.get(target)
+      io.to(targetSocketId).emit("call-ended", { username })
+    } else {
+      // Sinon, informer tous les autres utilisateurs que l'appel est terminé
+      socket.to(code).emit("call-ended", { username })
+    }
   })
 
   // Gestion de la déconnexion
@@ -276,7 +329,8 @@ io.on("connection", (socket) => {
         socket.to(code).emit("user-left", { username })
 
         // Mettre à jour la liste des utilisateurs
-        io.to(code).emit("users-list", Array.from(room.users))
+        const usersList = Array.from(room.users.keys())
+        io.to(code).emit("users-list", usersList)
 
         // Si la salle est vide, la supprimer
         if (room.users.size === 0) {
