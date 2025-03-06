@@ -9,7 +9,15 @@ const fs = require("fs")
 // Création de l'application Express
 const app = express()
 const server = http.createServer(app)
-const io = new Server(server)
+
+// Configuration de Socket.IO avec CORS
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+  pingTimeout: 60000, // Augmenter le timeout pour une meilleure stabilité
+})
 
 // Configuration du dossier de stockage pour multer
 const uploadDirectory = path.join(__dirname, "public", "uploads")
@@ -117,6 +125,7 @@ app.post("/upload", (req, res) => {
 // Stockage des codes d'accès actifs et des utilisateurs
 const activeCodes = new Map()
 const userSockets = new Map() // Pour suivre les sockets des utilisateurs
+const userCalls = new Map() // Pour suivre les appels actifs des utilisateurs
 
 // Configuration des événements Socket.IO
 io.on("connection", (socket) => {
@@ -228,8 +237,18 @@ io.on("connection", (socket) => {
       return
     }
 
+    // Vérifier si l'utilisateur cible est déjà en appel
+    if (userCalls.has(targetUsername)) {
+      socket.emit("error", { message: "L'utilisateur est déjà en appel" })
+      return
+    }
+
     const targetSocketId = room.users.get(targetUsername)
     console.log(`Appel de ${caller} vers ${targetUsername} (socketId: ${targetSocketId}) dans la salle ${code}`)
+
+    // Enregistrer l'appel
+    userCalls.set(caller, targetUsername)
+    userCalls.set(targetUsername, caller)
 
     // Envoyer l'offre uniquement à l'utilisateur cible
     io.to(targetSocketId).emit("incoming-call", {
@@ -256,6 +275,12 @@ io.on("connection", (socket) => {
 
     const callerSocketId = room.users.get(caller)
     console.log(`Réponse d'appel de ${answerer} à ${caller} (socketId: ${callerSocketId}) dans la salle ${code}`)
+
+    // Si l'appel est rejeté, nettoyer les données d'appel
+    if (answer === null) {
+      userCalls.delete(caller)
+      userCalls.delete(answerer)
+    }
 
     // Envoyer la réponse uniquement à l'appelant
     io.to(callerSocketId).emit("call-answered", {
@@ -301,6 +326,10 @@ io.on("connection", (socket) => {
 
     console.log(`Appel terminé par ${username} dans la salle ${code}`)
 
+    // Nettoyer les données d'appel
+    userCalls.delete(username)
+    userCalls.delete(target)
+
     // Si une cible spécifique est fournie, envoyer uniquement à cette cible
     if (target && room.users.has(target)) {
       const targetSocketId = room.users.get(target)
@@ -324,6 +353,19 @@ io.on("connection", (socket) => {
       if (activeCodes.has(code)) {
         const room = activeCodes.get(code)
         room.users.delete(username)
+
+        // Nettoyer les données d'appel
+        if (userCalls.has(username)) {
+          const otherUser = userCalls.get(username)
+          userCalls.delete(username)
+          userCalls.delete(otherUser)
+
+          // Informer l'autre utilisateur que l'appel est terminé
+          if (room.users.has(otherUser)) {
+            const otherSocketId = room.users.get(otherUser)
+            io.to(otherSocketId).emit("call-ended", { username })
+          }
+        }
 
         // Informer les autres utilisateurs
         socket.to(code).emit("user-left", { username })
