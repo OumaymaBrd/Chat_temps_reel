@@ -48,7 +48,9 @@ const storage = multer.diskStorage({
 // Configuration des filtres pour les types de fichiers acceptés
 const fileFilter = (req, file, callback) => {
   // Vérification du type MIME
-  if (file.mimetype.startsWith("image/") || file.mimetype === "application/pdf") {
+  if (file.type && (file.type.startsWith("image/") || file.type === "application/pdf")) {
+    callback(null, true)
+  } else if (file.mimetype && (file.mimetype.startsWith("image/") || file.mimetype === "application/pdf")) {
     callback(null, true)
   } else {
     callback(new Error("Type de fichier non supporté. Seuls les images et les PDF sont acceptés."), false)
@@ -126,6 +128,7 @@ app.post("/upload", (req, res) => {
 const activeCodes = new Map()
 const userSockets = new Map() // Pour suivre les sockets des utilisateurs
 const userCalls = new Map() // Pour suivre les appels actifs des utilisateurs
+const callDurations = new Map() // Pour suivre les durées d'appel
 
 // Configuration des événements Socket.IO
 io.on("connection", (socket) => {
@@ -250,6 +253,13 @@ io.on("connection", (socket) => {
     userCalls.set(caller, targetUsername)
     userCalls.set(targetUsername, caller)
 
+    // Initialiser le suivi de la durée d'appel
+    const callId = `${caller}-${targetUsername}`
+    callDurations.set(callId, {
+      startTime: new Date(),
+      duration: 0,
+    })
+
     // Envoyer l'offre uniquement à l'utilisateur cible
     io.to(targetSocketId).emit("incoming-call", {
       offer,
@@ -280,6 +290,10 @@ io.on("connection", (socket) => {
     if (answer === null) {
       userCalls.delete(caller)
       userCalls.delete(answerer)
+
+      // Supprimer le suivi de la durée d'appel
+      const callId = `${caller}-${answerer}`
+      callDurations.delete(callId)
     }
 
     // Envoyer la réponse uniquement à l'appelant
@@ -326,6 +340,19 @@ io.on("connection", (socket) => {
 
     console.log(`Appel terminé par ${username} dans la salle ${code}`)
 
+    // Calculer la durée de l'appel
+    let callDurationInfo = null
+    const callId1 = `${username}-${target}`
+    const callId2 = `${target}-${username}`
+
+    if (callDurations.has(callId1)) {
+      callDurationInfo = callDurations.get(callId1)
+      callDurations.delete(callId1)
+    } else if (callDurations.has(callId2)) {
+      callDurationInfo = callDurations.get(callId2)
+      callDurations.delete(callId2)
+    }
+
     // Nettoyer les données d'appel
     userCalls.delete(username)
     userCalls.delete(target)
@@ -333,10 +360,16 @@ io.on("connection", (socket) => {
     // Si une cible spécifique est fournie, envoyer uniquement à cette cible
     if (target && room.users.has(target)) {
       const targetSocketId = room.users.get(target)
-      io.to(targetSocketId).emit("call-ended", { username })
+      io.to(targetSocketId).emit("call-ended", {
+        username,
+        duration: callDurationInfo ? Math.floor((new Date() - callDurationInfo.startTime) / 1000) : 0,
+      })
     } else {
       // Sinon, informer tous les autres utilisateurs que l'appel est terminé
-      socket.to(code).emit("call-ended", { username })
+      socket.to(code).emit("call-ended", {
+        username,
+        duration: callDurationInfo ? Math.floor((new Date() - callDurationInfo.startTime) / 1000) : 0,
+      })
     }
   })
 
@@ -357,13 +390,30 @@ io.on("connection", (socket) => {
         // Nettoyer les données d'appel
         if (userCalls.has(username)) {
           const otherUser = userCalls.get(username)
+
+          // Calculer la durée de l'appel
+          let callDurationInfo = null
+          const callId1 = `${username}-${otherUser}`
+          const callId2 = `${otherUser}-${username}`
+
+          if (callDurations.has(callId1)) {
+            callDurationInfo = callDurations.get(callId1)
+            callDurations.delete(callId1)
+          } else if (callDurations.has(callId2)) {
+            callDurationInfo = callDurations.get(callId2)
+            callDurations.delete(callId2)
+          }
+
           userCalls.delete(username)
           userCalls.delete(otherUser)
 
           // Informer l'autre utilisateur que l'appel est terminé
           if (room.users.has(otherUser)) {
             const otherSocketId = room.users.get(otherUser)
-            io.to(otherSocketId).emit("call-ended", { username })
+            io.to(otherSocketId).emit("call-ended", {
+              username,
+              duration: callDurationInfo ? Math.floor((new Date() - callDurationInfo.startTime) / 1000) : 0,
+            })
           }
         }
 
