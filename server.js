@@ -488,6 +488,7 @@ server.listen(PORT, () => {
 process.on("uncaughtException", (error) => {
   console.error("Erreur non capturée:", error)
 })
+// 
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("Promesse rejetée non gérée:", reason)
