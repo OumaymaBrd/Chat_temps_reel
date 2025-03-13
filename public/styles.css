@@ -8,7 +8,7 @@
 
 /* Styles de base */
 body {
-  background-color: #f5f5f5;
+  background-color: #0b0931;
   color: #333;
   line-height: 1.6;
   min-height: 100vh;
@@ -25,7 +25,7 @@ body {
 
 /* Carte pour les formulaires */
 .card {
-  background-color: white;
+  background-color: rgb(140, 162, 201);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   padding: 30px;
@@ -35,7 +35,7 @@ body {
 
 /* Container du chat */
 .chat-container {
-  background-color: white;
+  background-color: rgb(166, 183, 240);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   width: 100%;
