@@ -637,6 +637,121 @@ video {
   border-radius: 4px;
 }
 
+/* Styles pour l'enregistrement audio */
+.audio-recorder-container {
+  position: absolute;
+  bottom: 80px;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border-top: 1px solid #eee;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 10;
+}
+
+.audio-recorder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.audio-recorder-content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.audio-recorder-visualizer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 0;
+}
+
+.visualizer-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 60px;
+  width: 100%;
+  gap: 5px;
+}
+
+.visualizer-bar {
+  width: 8px;
+  height: 10px;
+  background-color: #3498db;
+  border-radius: 2px;
+  transition: height 0.1s ease;
+}
+
+.audio-timer {
+  font-size: 18px;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.audio-recorder-controls {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.btn-record {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.btn-record:hover {
+  background-color: #2980b9;
+}
+
+.audio-preview {
+  width: 100%;
+  padding: 10px 0;
+}
+
+.audio-preview audio {
+  width: 100%;
+}
+
+/* Animation pour l'enregistrement */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.recording .btn-record {
+  animation: pulse 1.5s infinite;
+  background-color: #e74c3c;
+}
+
+.recording .visualizer-bar {
+  animation: pulse 1s infinite;
+}
+
 /* Media Queries */
 @media (max-width: 768px) {
   .card,
@@ -689,6 +804,19 @@ video {
   .btn-call-end {
     width: 50px;
     height: 50px;
+  }
+
+  .audio-recorder-container {
+    padding: 10px;
+  }
+
+  .visualizer-container {
+    height: 40px;
+  }
+
+  .btn-record {
+    padding: 8px 15px;
+    font-size: 14px;
   }
 }
 

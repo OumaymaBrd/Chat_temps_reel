@@ -99,6 +99,16 @@
                   </svg>
               </button>
 
+              <!-- Bouton d'enregistrement audio -->
+              <button id="audio-record-btn" class="btn-icon" title="Enregistrer un message audio">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                      <line x1="12" y1="19" x2="12" y2="23"></line>
+                      <line x1="8" y1="23" x2="16" y2="23"></line>
+                  </svg>
+              </button>
+
               <!-- Champ de saisie du message -->
               <input 
                   type="text" 
@@ -123,6 +133,56 @@
               </div>
               <div id="file-preview-content" class="file-preview-content"></div>
               <button id="file-send-btn" class="btn">Envoyer</button>
+          </div>
+
+          <!-- Interface d'enregistrement audio -->
+          <div id="audio-recorder-container" class="audio-recorder-container hidden">
+              <div class="audio-recorder-header">
+                  <span id="audio-recorder-status">Enregistrement audio</span>
+                  <button id="audio-recorder-close" class="btn-icon">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18"></line>
+                          <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                  </button>
+              </div>
+              <div class="audio-recorder-content">
+                  <div class="audio-recorder-visualizer">
+                      <div id="audio-visualizer" class="visualizer-container">
+                          <div class="visualizer-bar"></div>
+                          <div class="visualizer-bar"></div>
+                          <div class="visualizer-bar"></div>
+                          <div class="visualizer-bar"></div>
+                          <div class="visualizer-bar"></div>
+                      </div>
+                      <div id="audio-timer" class="audio-timer">00:00</div>
+                  </div>
+                  <div class="audio-recorder-controls">
+                      <button id="audio-record-start-btn" class="btn-record">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <circle cx="12" cy="12" r="10"></circle>
+                              <circle cx="12" cy="12" r="3"></circle>
+                          </svg>
+                          <span>Démarrer</span>
+                      </button>
+                      <button id="audio-record-stop-btn" class="btn-record hidden">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <rect x="6" y="6" width="12" height="12" rx="2" ry="2"></rect>
+                          </svg>
+                          <span>Arrêter</span>
+                      </button>
+                      <button id="audio-record-play-btn" class="btn-record hidden">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                          </svg>
+                          <span>Écouter</span>
+                      </button>
+                  </div>
+                  <div id="audio-preview" class="audio-preview hidden">
+                      <audio id="audio-player" controls></audio>
+                  </div>
+                  <button id="audio-send-btn" class="btn hidden">Envoyer</button>
+              </div>
           </div>
       </div>
   </div>

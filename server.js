@@ -14,7 +14,7 @@ const server = http.createServer(app)
 const io = new Server(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST"],
   },
   pingTimeout: 60000, // Augmenter le timeout pour une meilleure stabilité
 })
@@ -48,12 +48,21 @@ const storage = multer.diskStorage({
 // Configuration des filtres pour les types de fichiers acceptés
 const fileFilter = (req, file, callback) => {
   // Vérification du type MIME
-  if (file.type && (file.type.startsWith("image/") || file.type === "application/pdf" || file.type.startsWith("audio/"))) {
+  if (
+    file.type &&
+    (file.type.startsWith("image/") || file.type === "application/pdf" || file.type.startsWith("audio/"))
+  ) {
     callback(null, true)
-  } else if (file.mimetype && (file.mimetype.startsWith("image/") || file.mimetype === "application/pdf" || file.mimetype.startsWith("audio/"))) {
+  } else if (
+    file.mimetype &&
+    (file.mimetype.startsWith("image/") || file.mimetype === "application/pdf" || file.mimetype.startsWith("audio/"))
+  ) {
     callback(null, true)
   } else {
-    callback(new Error("Type de fichier non supporté. Seuls les images, les PDF et les fichiers audio sont acceptés."), false)
+    callback(
+      new Error("Type de fichier non supporté. Seuls les images, les PDF et les fichiers audio sont acceptés."),
+      false,
+    )
   }
 }
 
@@ -137,12 +146,12 @@ io.on("connection", (socket) => {
   // Gestion de la vérification du code d'accès
   socket.on("verify-code", (code) => {
     console.log("Vérification du code:", code)
-    
+
     try {
-      if (!code || typeof code !== 'string') {
+      if (!code || typeof code !== "string") {
         socket.emit("code-verified", {
           valid: false,
-          error: "Code invalide"
+          error: "Code invalide",
         })
         return
       }
@@ -152,20 +161,20 @@ io.on("connection", (socket) => {
         socket.join(code)
         socket.emit("code-verified", {
           valid: true,
-          code: code
+          code: code,
         })
         console.log(`Client a rejoint la salle: ${code}`)
       } else {
         // Création d'une nouvelle salle
         activeCodes.set(code, {
           createdAt: new Date(),
-          users: new Map()
+          users: new Map(),
         })
         socket.join(code)
         socket.emit("code-verified", {
           valid: true,
           code: code,
-          isNew: true
+          isNew: true,
         })
         console.log(`Nouvelle salle créée: ${code}`)
       }
@@ -173,7 +182,7 @@ io.on("connection", (socket) => {
       console.error("Erreur lors de la vérification du code:", error)
       socket.emit("code-verified", {
         valid: false,
-        error: "Erreur serveur"
+        error: "Erreur serveur",
       })
     }
   })
@@ -252,12 +261,12 @@ io.on("connection", (socket) => {
     // Enregistrer l'appel
     userCalls.set(caller, targetUsername)
     userCalls.set(targetUsername, caller)
-    
+
     // Initialiser le suivi de la durée d'appel
     const callId = `${caller}-${targetUsername}`
     callDurations.set(callId, {
       startTime: new Date(),
-      duration: 0
+      duration: 0,
     })
 
     // Envoyer l'offre uniquement à l'utilisateur cible
@@ -290,7 +299,7 @@ io.on("connection", (socket) => {
     if (answer === null) {
       userCalls.delete(caller)
       userCalls.delete(answerer)
-      
+
       // Supprimer le suivi de la durée d'appel
       const callId = `${caller}-${answerer}`
       callDurations.delete(callId)
@@ -344,7 +353,7 @@ io.on("connection", (socket) => {
     let callDurationInfo = null
     const callId1 = `${username}-${target}`
     const callId2 = `${target}-${username}`
-    
+
     if (callDurations.has(callId1)) {
       callDurationInfo = callDurations.get(callId1)
       callDurations.delete(callId1)
@@ -360,15 +369,15 @@ io.on("connection", (socket) => {
     // Si une cible spécifique est fournie, envoyer uniquement à cette cible
     if (target && room.users.has(target)) {
       const targetSocketId = room.users.get(target)
-      io.to(targetSocketId).emit("call-ended", { 
+      io.to(targetSocketId).emit("call-ended", {
         username,
-        duration: callDurationInfo ? Math.floor((new Date() - callDurationInfo.startTime) / 1000) : 0
+        duration: callDurationInfo ? Math.floor((new Date() - callDurationInfo.startTime) / 1000) : 0,
       })
     } else {
       // Sinon, informer tous les autres utilisateurs que l'appel est terminé
-      socket.to(code).emit("call-ended", { 
+      socket.to(code).emit("call-ended", {
         username,
-        duration: callDurationInfo ? Math.floor((new Date() - callDurationInfo.startTime) / 1000) : 0
+        duration: callDurationInfo ? Math.floor((new Date() - callDurationInfo.startTime) / 1000) : 0,
       })
     }
   })
@@ -390,12 +399,12 @@ io.on("connection", (socket) => {
         // Nettoyer les données d'appel
         if (userCalls.has(username)) {
           const otherUser = userCalls.get(username)
-          
+
           // Calculer la durée de l'appel
           let callDurationInfo = null
           const callId1 = `${username}-${otherUser}`
           const callId2 = `${otherUser}-${username}`
-          
+
           if (callDurations.has(callId1)) {
             callDurationInfo = callDurations.get(callId1)
             callDurations.delete(callId1)
@@ -403,16 +412,16 @@ io.on("connection", (socket) => {
             callDurationInfo = callDurations.get(callId2)
             callDurations.delete(callId2)
           }
-          
+
           userCalls.delete(username)
           userCalls.delete(otherUser)
 
           // Informer l'autre utilisateur que l'appel est terminé
           if (room.users.has(otherUser)) {
             const otherSocketId = room.users.get(otherUser)
-            io.to(otherSocketId).emit("call-ended", { 
+            io.to(otherSocketId).emit("call-ended", {
               username,
-              duration: callDurationInfo ? Math.floor((new Date() - callDurationInfo.startTime) / 1000) : 0
+              duration: callDurationInfo ? Math.floor((new Date() - callDurationInfo.startTime) / 1000) : 0,
             })
           }
         }
@@ -492,3 +501,4 @@ process.on("uncaughtException", (error) => {
 process.on("unhandledRejection", (reason, promise) => {
   console.error("Promesse rejetée non gérée:", reason)
 })
+
